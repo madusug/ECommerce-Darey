@@ -130,7 +130,39 @@ Upon accessing Jenkins, it shows that Jenkins will need to be unlocked. To ensur
 `/var/lib/jenkins/secrets/initialAdminPassword`
 
 To access the password, I used:
-`cat /var/lib/jenkins/secrets/initialAdminPassword`
+`sudo cat /var/lib/jenkins/secrets/initialAdminPassword`
 
-[JenkinsUnlock](./img/1%20Jenkins%20Unlock.jpg)
+![JenkinsUnlock](./img/1%20Jenkins%20Unlock.jpg)
+
+After unlocking Jenkins,I selected "Install suggested plugins".
+
+![Jenkins Plugins](./img/2%20Jenkins%20Plugins.jpg)
+
+After the plugins are unlocked, I created the Admin User (Username, Password, Full name and E-mail address), after which, I started Jenkins.
+
+## Source Code Management Repository Integration
+
+Next, I connected Jenkins to the version control system for source code management. This let me subscribe to events happening on Github.
+To do this, I:
+
+1. Integrated Jenkins with GitHub
+2. Configured webhooks for automatic triggering of Jenkins builds
+
+### Integrate Jenkins with Github
+
+Next, I connected Jenkins to Github using webhooks. On Github, go to settings, click on Webhooks, click Add webhook. Under Payload URL input <ip-address>:8080/github-webhook.
+
+![Githook](./img/3%20Githook.jpg)
+
+## Jenkins Freestyle Jobs for Build and Unit Tests
+
+Here I created a Jenkins freestyle job for building a web application and running unit tests.
+
+I selected new item on Jenkins, chose 'freestyle' project, and gave it a name without spaces. To configure the freestyle project, I chose 'Git' as my Source Code Management and used my github repository web url as the Repository URL on Jenkins. I also changed the Branch Specifier to */main. Under Build Triggers, I chose GitHub hook trigger for GITScm polling and saved it.
+
+![freestyle](./img/4%20Freestyle.jpg)
+
+## Jenkins Pipeline for Web Application
+
+I also developed a a pipeline job on Jenkins for running web applications.
 
