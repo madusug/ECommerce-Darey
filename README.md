@@ -162,7 +162,62 @@ I selected new item on Jenkins, chose 'freestyle' project, and gave it a name wi
 
 ![freestyle](./img/4%20Freestyle.jpg)
 
-## Jenkins Pipeline for Web Application
+## Jenkins Pipeline for Web Application | Docker Image Creation and Registry Push
 
-I also developed a a pipeline job on Jenkins for running web applications.
+I also developed a a pipeline job on Jenkins for running web applications. I automated the creation of Docker images for the web application and pushed them to GitHub. I created a 'dockerfile' and the HTML file.
 
+Steps:
+
+1. Created a Jenkins Pipeline script to run a web application.
+2. Configured Jenkins to build Docker images
+3. Ran a container using the built docker image
+4. Accessed the web application via my web browser
+5. Pushed the Docker image to the container registry
+
+### Create a Jenkins Pipeline Script to run a Web application
+
+I selected new item on Jenkins, chose 'pipeline' project, and gave it a name without spaces. To configure the pipeline project, I chose GitHub hook trigger for GITScm polling. To create a pipeline, I first logged into Docker and created a new repository to store the docker image for the e-commerce platform. I also created a pipeline as follows for application setup automation
+
+```
+pipeline {
+    environment {
+        registry = "distinctugo/ecommdarey"
+        registryCredential = 'distinctugo'
+        dockerImage = ''
+        v1 = 'latest'  // Define version variable
+    }
+    agent any
+    stages {
+        stage('Connect to GitHub') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/madusug/ECommerce-Darey.git']])
+            }
+        }
+        stage('Building Image from Dockerfile') {
+            steps {
+                script {
+                    dockerImage = docker.build("${registry}:$v1", "-f Dockerfile .")
+                }
+            }
+        }
+        stage('Push Image to Dockerhub') {
+            steps {
+                script {
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push()
+                        dockerImage.push('latest') // Optionally push with the "latest" tag
+                    }
+                }
+            }
+        }
+        stage('Run image') {
+            steps {
+                script {
+                    docker.image("${registry}:$v1").run('-p 8081:80')
+                }
+            }
+        }
+    }
+}
+
+```
