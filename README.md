@@ -196,7 +196,7 @@ pipeline {
         stage('Building Image from Dockerfile') {
             steps {
                 script {
-                    dockerImage = docker.build("${registry}:$v1", "-f Dockerfile .")
+                    sh 'docker build -t dockerfile .'
                 }
             }
         }
@@ -213,7 +213,7 @@ pipeline {
         stage('Run image') {
             steps {
                 script {
-                    docker.image("${registry}:$v1").run('-p 8081:80')
+                    sh ' docker run -itd -p 8081:80 dockerfile '
                 }
             }
         }
@@ -221,3 +221,122 @@ pipeline {
 }
 
 ```
+
+Saving this pipeline and running the build gave me an error. It was a credential error which prevented login into docker hub for a push.
+
+![credential-error](./img/6%20credential-error.jpg)
+
+To resolve this, I created credentials on Jenkins to match my docker hub credentials.
+
+![credentials](./img/8%20credentials.jpg)
+
+I also downloaded a plugin in hopes for the pipeline to run smoothly. I downloaded the Docker Pipeline plugin
+
+![plugin](./img/9%20Plugin.jpg)
+
+After saving it all, I ran my build again but I ran into another error. This time the error stated that it couldn't find the dockerfile.
+
+![dockerfile-error](./img/5%20pipeline-error.jpg)
+
+I tried changing "dockerfile" to "Dockerfile" in all instances to no avail. On my CLI I did the following in an attempt to resolve the issue:
+
+- I ran the following code to ensure that jenkins has the appropriate permissions for the workspace and temp directories:
+
+```
+sudo chown -R jenkins:jenkins /var/lib/jenkins/workspace
+sudo chmod -R 755 /var/lib/jenkins/workspace
+```
+
+- I added a cleanup step to my pipeline to remove any corrupted or residual files:
+
+```
+stage('Clean Workspace') {
+    steps {
+        cleanWs()
+    }
+}
+```
+- I opened the Jenkins service configuration file `sudo vim /etc/default/jenkins` and added the following line: `JAVA_ARGS="-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"`
+
+But none of these solutions worked, so I decided to change my entire pipeline syntax as follows:
+
+```
+pipeline {
+    environment {
+        registry = "distinctugo/ecommdarey"
+        registryCredential = 'distinctugo'
+        dockerImage = ''
+        versionTag = 'latest'  // Define version variable
+    }
+    agent any
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Connect to GitHub') {
+            steps {
+                checkout scmGit(
+                    branches: [[name: '*/main']], 
+                    extensions: [], 
+                    userRemoteConfigs: [[url: 'https://github.com/madusug/ECommerce-Darey.git']]
+                )
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${registry}:${versionTag}")
+                }
+            }
+        }
+
+        stage('Push Docker Image to DockerHub') {
+            steps {
+                script {
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push()  // Push with version tag
+                        dockerImage.push('latest') // Push as "latest" tag
+                    }
+                }
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    sh "docker run -itd -p 8081:80 ${registry}:${versionTag}"
+                }
+            }
+        }
+    }
+}
+```
+
+To push the image to the docker hub repository, I used the following syntax:
+
+```
+docker.withRegistry('', registryCredential) {
+    dockerImage.push()  // Push with version tag
+    dockerImage.push('latest') // Push as "latest" tag
+}
+```
+
+docker.withRegistry('', registryCredential) authenticates with Docker Hub using the credentials I created in Jenkins under the ID registryCredentials (which I defined in my pipeline).
+
+The empty string '' implies that the default docker registry (https://index.docker.io/v1/) is used.
+
+dockerImage.push() pushes the docker image to the registry with the tag specified in my build step
+dockerImage.push('latest') pushes the same docker image but with the latest tag, which I found out is common practice denoting the  most recent and stable version of the image.
+
+I added new revised stages for the build of my docker image and running the container. This yielded in success.
+
+![success](./img/7%20pipeline-success.jpg)
+
+I verified the image repository on docker hub. I checked the web application on my browser using the ipaddress:8081.
+
+Conclusion: To conclude, I was able to configure Jenkins to build docker images, run a container using the built docker image, access the web application on my browser, and push docker image to the registry.
